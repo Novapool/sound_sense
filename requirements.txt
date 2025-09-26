@@ -1,4 +1,4 @@
-# requirements.txt - Updated for Real-time Audio Classification
+# requirements_realtime.txt - Requirements for Real-time Audio Classification
 
 # Core MemryX SDK
 memryx
@@ -6,22 +6,32 @@ memryx
 # AI Edge LiteRT for TensorFlow Lite model inference
 ai-edge-litert==1.3.0
 
-# Scientific computing library for audio processing
+# Scientific computing and audio processing
 scipy
-
-# Web framework for the Flask application
-flask==3.1.1
-
-# Real-time WebSocket communication
-flask-socketio==5.3.5
-
-# ffmpeg for audio processing
-ffmpeg-python
-
-# Additional dependencies for real-time processing
 numpy>=1.21.0
 
-# Note: ffmpeg needs to be installed separately via system package manager
-# For Linux: sudo apt install ffmpeg
-# For macOS: brew install ffmpeg
-# Alternative: pip install ffmpeg-python (if system ffmpeg installation fails)
+# Real-time audio capture
+sounddevice>=0.4.6
+
+# Web framework and real-time communication
+flask==3.1.1
+flask-socketio==5.3.5
+python-socketio[client]==5.10.0
+
+# For WebSocket support
+eventlet==0.33.3
+# Alternative: gevent==23.9.1
+
+# Audio format conversion (keep existing)
+ffmpeg-python
+
+# TensorFlow for model utilities
+tensorflow>=2.13.0
+
+# Additional dependencies
+Werkzeug>=3.1.0
+
+# Note: System requirements
+# Linux: sudo apt-get install portaudio19-dev
+# macOS: brew install portaudio
+# Windows: portaudio is typically bundled with sounddevice

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Audio Classification</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+        
+        h1 {
+            text-align: center;
+            margin: 30px 0;
+            color: white;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .main-container {
+            width: 90%;
+            max-width: 1400px;
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .control-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            flex: 0 0 300px;
+        }
+        
+        .visualization-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .current-sound {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .current-sound h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.5em;
+        }
+        
+        .sound-label {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .control-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .btn-start {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: white;
+        }
+        
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(132,250,176,0.4);
+        }
+        
+        .btn-stop {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+        
+        .btn-stop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(250,112,154,0.4);
+        }
+        
+        .btn:disabled {
+            background: #ddd;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+        
+        .status-dot.active {
+            background: #4CAF50;
+        }
+        
+        .status-dot.inactive {
+            background: #f44336;
+            animation: none;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            flex: 1;
+        }
+        
+        .chart-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            position: relative;
+        }
+        
+        .chart-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #666;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #764ba2;
+        }
+        
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .history-item {
+            padding: 5px 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .history-class {
+            font-weight: bold;
+        }
+        
+        .history-percent {
+            color: #764ba2;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 Real-Time Audio Classification 🎵</h1>
+    
+    <div class="main-container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="current-sound">
+                <h2>Current Sound</h2>
+                <div class="sound-label" id="currentClass">Waiting...</div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidenceBar" style="width: 0%">
+                        0%
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-indicator">
+                <div class="status-dot inactive" id="statusDot"></div>
+                <span id="statusText">Not Running</span>
+            </div>
+            
+            <div class="control-buttons">
+                <button class="btn btn-start" id="startBtn" onclick="startClassification()">
+                    Start Classification
+                </button>
+                <button class="btn btn-stop" id="stopBtn" onclick="stopClassification()" disabled>
+                    Stop Classification
+                </button>
+            </div>
+            
+            <div class="stats-container">
+                <div class="stat-box">
+                    <div class="stat-label">Frames</div>
+                    <div class="stat-value" id="frameCount">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">FPS</div>
+                    <div class="stat-value" id="fps">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Time</div>
+                    <div class="stat-value" id="runtime">0s</div>
+                </div>
+            </div>
+            
+            <div class="history-list" id="historyList">
+                <div class="chart-title">Recent Classifications</div>
+                <!-- History items will be added here -->
+            </div>
+        </div>
+        
+        <!-- Visualization Panel -->
+        <div class="visualization-panel">
+            <div class="charts-container">
+                <div class="chart-box">
+                    <div class="chart-title">Top Classifications</div>
+                    <canvas id="topClassChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">Classification History</div>
+                    <canvas id="historyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        
+        // State
+        let isRunning = false;
+        let startTime = null;
+        let runtimeInterval = null;
+        
+        // Chart configurations
+        const chartColors = [
+            'rgba(118, 75, 162, 0.8)',
+            'rgba(102, 126, 234, 0.8)',
+            'rgba(132, 250, 176, 0.8)',
+            'rgba(143, 211, 244, 0.8)',
+            'rgba(250, 112, 154, 0.8)',
+            'rgba(254, 225, 64, 0.8)'
+        ];
+        
+        // Initialize Top Classifications Chart
+        const topClassCtx = document.getElementById('topClassChart').getContext('2d');
+        const topClassChart = new Chart(topClassCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: chartColors,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 10,
+                            font: { size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Initialize History Chart
+        const historyCtx = document.getElementById('historyChart').getContext('2d');
+        const historyChart = new Chart(historyCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Frequency (%)',
+                    data: [],
+                    backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                    borderColor: 'rgba(118, 75, 162, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // Socket event handlers
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+        
+        socket.on('classification_update', function(data) {
+            updateUI(data);
+        });
+        
+        socket.on('status_update', function(data) {
+            if (data.status === 'running') {
+                setRunningState(true);
+            } else if (data.status === 'stopped') {
+                setRunningState(false);
+            }
+        });
+        
+        function startClassification() {
+            socket.emit('start_classification');
+            startTime = Date.now();
+            startRuntimeCounter();
+        }
+        
+        function stopClassification() {
+            socket.emit('stop_classification');
+            stopRuntimeCounter();
+        }
+        
+        function setRunningState(running) {
+            isRunning = running;
+            
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            if (running) {
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusDot.className = 'status-dot active';
+                statusText.textContent = 'Running';
+            } else {
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                statusDot.className = 'status-dot inactive';
+                statusText.textContent = 'Not Running';
+            }
+        }
+        
+        function updateUI(data) {
+            // Update current classification
+            document.getElementById('currentClass').textContent = data.class || 'Unknown';
+            
+            // Update confidence bar
+            const confidence = (data.confidence * 100).toFixed(1);
+            const confidenceBar = document.getElementById('confidenceBar');
+            confidenceBar.style.width = confidence + '%';
+            confidenceBar.textContent = confidence + '%';
+            
+            // Update stats
+            document.getElementById('frameCount').textContent = data.frame_count || 0;
+            document.getElementById('fps').textContent = data.fps ? data.fps.toFixed(1) : '0';
+            
+            // Update top classifications chart
+            if (data.scores) {
+                const labels = Object.keys(data.scores);
+                const values = Object.values(data.scores).map(v => (v * 100).toFixed(1));
+                
+                topClassChart.data.labels = labels;
+                topClassChart.data.datasets[0].data = values;
+                topClassChart.update('none');  // Update without animation
+            }
+            
+            // Update history chart
+            if (data.history) {
+                const labels = Object.keys(data.history).slice(0, 10);
+                const values = Object.values(data.history).slice(0, 10);
+                
+                historyChart.data.labels = labels;
+                historyChart.data.datasets[0].data = values;
+                historyChart.update('none');
+                
+                // Update history list
+                updateHistoryList(data.history);
+            }
+        }
+        
+        function updateHistoryList(history) {
+            const historyList = document.getElementById('historyList');
+            const items = Object.entries(history).slice(0, 5);
+            
+            // Keep the title
+            const title = historyList.querySelector('.chart-title');
+            historyList.innerHTML = '';
+            historyList.appendChild(title);
+            
+            items.forEach(([className, percent]) => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <span class="history-class">${className}</span>
+                    <span class="history-percent">${percent.toFixed(1)}%</span>
+                `;
+                historyList.appendChild(item);
+            });
+        }
+        
+        function startRuntimeCounter() {
+            runtimeInterval = setInterval(updateRuntime, 1000);
+        }
+        
+        function stopRuntimeCounter() {
+            if (runtimeInterval) {
+                clearInterval(runtimeInterval);
+                runtimeInterval = null;
+            }
+        }
+        
+        function updateRuntime() {
+            if (startTime) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('runtime').textContent = 
+                    minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+            }
+        }
+        
+        // Initial state
+        setRunningState(false);
+    </script>
+</body>
+</html>
