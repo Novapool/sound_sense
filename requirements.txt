@@ -1,3 +1,5 @@
+# requirements.txt - Updated for Real-time Audio Classification
+
 # Core MemryX SDK
 memryx
 
@@ -10,8 +12,14 @@ scipy
 # Web framework for the Flask application
 flask==3.1.1
 
-# ffmpeg
+# Real-time WebSocket communication
+flask-socketio==5.3.5
+
+# ffmpeg for audio processing
 ffmpeg-python
+
+# Additional dependencies for real-time processing
+numpy>=1.21.0
 
 # Note: ffmpeg needs to be installed separately via system package manager
 # For Linux: sudo apt install ffmpeg
