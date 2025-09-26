@@ -1,0 +1,84 @@
+[
+  {
+    "audio_file": "/home/memryx/Examples/sound_sense/test/samples/System Test 12.mp3",
+    "timestamp": "2025-09-26T15:15:56.469985",
+    "model_output_shapes": [
+      [
+        1,
+        1024
+      ],
+      [
+        1,
+        521
+      ]
+    ],
+    "predictions": [
+      {
+        "class_index": 423,
+        "class_name": "AudioSet_Class_423",
+        "raw_score": 1.34375,
+        "confidence_percent": 134.375
+      },
+      {
+        "class_index": 95,
+        "class_name": "AudioSet_Class_95",
+        "raw_score": 1.171875,
+        "confidence_percent": 117.1875
+      },
+      {
+        "class_index": 146,
+        "class_name": "AudioSet_Class_146",
+        "raw_score": 1.09375,
+        "confidence_percent": 109.375
+      },
+      {
+        "class_index": 385,
+        "class_name": "Bark",
+        "raw_score": 1.0703125,
+        "confidence_percent": 107.03125
+      },
+      {
+        "class_index": 59,
+        "class_name": "AudioSet_Class_59",
+        "raw_score": 1.0234375,
+        "confidence_percent": 102.34375
+      },
+      {
+        "class_index": 389,
+        "class_name": "AudioSet_Class_389",
+        "raw_score": 0.96875,
+        "confidence_percent": 96.875
+      },
+      {
+        "class_index": 159,
+        "class_name": "AudioSet_Class_159",
+        "raw_score": 0.90234375,
+        "confidence_percent": 90.234375
+      },
+      {
+        "class_index": 77,
+        "class_name": "AudioSet_Class_77",
+        "raw_score": 0.64453125,
+        "confidence_percent": 64.453125
+      },
+      {
+        "class_index": 452,
+        "class_name": "AudioSet_Class_452",
+        "raw_score": 0.53515625,
+        "confidence_percent": 53.515625
+      },
+      {
+        "class_index": 288,
+        "class_name": "AudioSet_Class_288",
+        "raw_score": 0.53125,
+        "confidence_percent": 53.125
+      }
+    ],
+    "raw_scores_stats": {
+      "min": 0.0,
+      "max": 1.34375,
+      "mean": 0.03167153522372246,
+      "std": 0.14425772428512573
+    }
+  }
+]

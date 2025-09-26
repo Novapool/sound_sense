@@ -1,0 +1,19 @@
+# Core MemryX SDK
+memryx
+
+# Audio processing
+librosa
+soundfile
+
+# Data processing and computation
+numpy
+
+# Standard library modules (no installation needed)
+# - os
+# - sys
+# - json
+# - logging
+# - pathlib
+# - datetime
+# - typing
+# - csv
