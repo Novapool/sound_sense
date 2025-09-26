@@ -4,9 +4,11 @@ memryx
 # Audio processing
 librosa
 soundfile
+pyaudio
 
 # Data processing and computation
 numpy
+pandas
 
 # Standard library modules (no installation needed)
 # - os
