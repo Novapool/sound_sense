@@ -16,6 +16,7 @@ from collections import Counter, deque
 import time
 import threading
 import logging
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -96,6 +97,9 @@ class FixedWebRealTimeAudioClassifier:
         }
         self.last_alert_time = 0
         self.alert_cooldown = 5.0  # 5 seconds between alerts
+        
+        # Discord webhook URL
+        self.discord_webhook_url = "https://discord.com/api/webhooks/1421703732013568010/wUHkW-uw4UvBUGCfuHWrNUTzCcwpRk1VMoqvsxyVnKDSaO--HF-kSbxV3n7nP7GlzGRP"
 
     def _check_for_alert(self, predicted_class, confidence):
         """Check if current prediction should trigger an alert"""
@@ -118,6 +122,55 @@ class FixedWebRealTimeAudioClassifier:
                         'timestamp': current_time
                     }
         return None
+
+    def _send_discord_alert(self, alert):
+        """Send alert to Discord webhook"""
+        try:
+            # Priority color mapping
+            priority_colors = {
+                'critical': 0xFF0000,  # Red
+                'high': 0xFF8C00,      # Orange
+                'medium': 0xFFD700     # Yellow
+            }
+            
+            # Format timestamp
+            from datetime import datetime
+            timestamp = datetime.fromtimestamp(alert['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Prepare Discord message data
+            data = {
+                "content": f"🚨 **{alert['priority'].upper()} ALERT** 🚨 <@275014760590999552>",
+                "username": "Sound Sense Alert System",
+                "embeds": [
+                    {
+                        "title": f"{alert['priority'].capitalize()} Priority Alert",
+                        "description": f"**Sound Detected:** {alert['sound']}\n**Confidence:** {alert['confidence']:.1%}\n**Time:** {timestamp}",
+                        "color": priority_colors.get(alert['priority'], 0x808080),
+                        "fields": [
+                            {
+                                "name": "Priority Level",
+                                "value": alert['priority'].upper(),
+                                "inline": True
+                            },
+                            {
+                                "name": "Detection Confidence",
+                                "value": f"{alert['confidence']:.1%}",
+                                "inline": True
+                            }
+                        ]
+                    }
+                ]
+            }
+            
+            # Send to Discord webhook
+            result = requests.post(self.discord_webhook_url, json=data, timeout=5)
+            result.raise_for_status()
+            logger.info(f"Discord alert sent successfully for {alert['sound']} (code {result.status_code})")
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to send Discord alert: {e}")
+        except Exception as e:
+            logger.error(f"Error sending Discord alert: {e}")
 
     def _class_names_from_csv(self):
         """Load class names from CSV (same as working classifier)"""
@@ -265,6 +318,8 @@ class FixedWebRealTimeAudioClassifier:
             if alert:
                 update_data['alert'] = alert
                 logger.info(f"ALERT: {alert['priority'].upper()} - {alert['sound']} (confidence: {alert['confidence']:.3f})")
+                # Send Discord alert
+                self._send_discord_alert(alert)
             
             socketio.emit('classification_update', update_data)
             

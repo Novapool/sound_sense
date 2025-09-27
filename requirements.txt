@@ -28,6 +28,9 @@ ffmpeg-python
 # TensorFlow for model utilities
 tensorflow>=2.13.0
 
+# Discord webhook support
+requests>=2.31.0
+
 # Additional dependencies
 Werkzeug>=3.1.0
 
