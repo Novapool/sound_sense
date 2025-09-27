@@ -244,6 +244,99 @@
             color: #764ba2;
             font-size: 0.9em;
         }
+        
+        /* Alert System Styles */
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        .alert-box {
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: slideIn 0.5s ease-out;
+            position: relative;
+        }
+        
+        .alert-critical {
+            background: linear-gradient(135deg, #ff4757 0%, #ff3838 100%);
+            border-left: 5px solid #ff1744;
+        }
+        
+        .alert-high {
+            background: linear-gradient(135deg, #ff6348 0%, #ff4757 100%);
+            border-left: 5px solid #ff5722;
+        }
+        
+        .alert-medium {
+            background: linear-gradient(135deg, #ffa502 0%, #ff6348 100%);
+            border-left: 5px solid #ff9800;
+        }
+        
+        .alert-title {
+            font-size: 1.2em;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        
+        .alert-sound {
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        
+        .alert-confidence {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .alert-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+        
+        .alert-close:hover {
+            opacity: 1;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
+        .alert-box.removing {
+            animation: slideOut 0.3s ease-in forwards;
+        }
     </style>
 </head>
 <body>
@@ -310,6 +403,11 @@
                 </div>
             </div>
         </div>
+    </div>
+    
+    <!-- Alert Container -->
+    <div class="alert-container" id="alertContainer">
+        <!-- Alerts will be added here dynamically -->
     </div>
     
     <!-- Socket.IO -->
@@ -463,6 +561,11 @@
             document.getElementById('frameCount').textContent = data.frame_count || 0;
             document.getElementById('fps').textContent = data.fps ? data.fps.toFixed(1) : '0';
             
+            // Handle alerts
+            if (data.alert) {
+                showAlert(data.alert);
+            }
+            
             // Update top classifications chart
             if (data.scores) {
                 const labels = Object.keys(data.scores);
@@ -525,6 +628,58 @@
                 const seconds = elapsed % 60;
                 document.getElementById('runtime').textContent = 
                     minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+            }
+        }
+        
+        // Alert System Functions
+        function showAlert(alert) {
+            const alertContainer = document.getElementById('alertContainer');
+            
+            // Create alert element
+            const alertBox = document.createElement('div');
+            alertBox.className = `alert-box alert-${alert.priority}`;
+            alertBox.id = `alert-${Date.now()}`;
+            
+            // Get priority display text
+            const priorityText = {
+                'critical': '🚨 CRITICAL ALERT',
+                'high': '⚠️ HIGH PRIORITY',
+                'medium': '🔔 ALERT'
+            }[alert.priority] || '🔔 ALERT';
+            
+            alertBox.innerHTML = `
+                <button class="alert-close" onclick="closeAlert('${alertBox.id}')">&times;</button>
+                <div class="alert-title">${priorityText}</div>
+                <div class="alert-sound">${alert.sound}</div>
+                <div class="alert-confidence">Confidence: ${(alert.confidence * 100).toFixed(1)}%</div>
+            `;
+            
+            // Add to container
+            alertContainer.appendChild(alertBox);
+            
+            // Auto-remove after 10 seconds for medium, 15 for high, 20 for critical
+            const autoRemoveTime = {
+                'medium': 10000,
+                'high': 15000,
+                'critical': 20000
+            }[alert.priority] || 10000;
+            
+            setTimeout(() => {
+                closeAlert(alertBox.id);
+            }, autoRemoveTime);
+            
+            console.log('Alert shown:', alert);
+        }
+        
+        function closeAlert(alertId) {
+            const alertBox = document.getElementById(alertId);
+            if (alertBox) {
+                alertBox.classList.add('removing');
+                setTimeout(() => {
+                    if (alertBox.parentNode) {
+                        alertBox.parentNode.removeChild(alertBox);
+                    }
+                }, 300); // Match the slideOut animation duration
             }
         }
         

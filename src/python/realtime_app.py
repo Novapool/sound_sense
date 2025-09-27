@@ -73,6 +73,51 @@ class FixedWebRealTimeAudioClassifier:
         # AsyncAccl setup
         self.accl = None
         self.accl_thread = None
+        
+        # Alert system - simple and minimal
+        self.alert_sounds = {
+            'critical': {  # Red alerts
+                'Fire alarm': 394,
+                'Smoke detector, smoke alarm': 393,
+                'Siren': 390,
+                'Civil defense siren': 391
+            },
+            'high': {  # Orange alerts  
+                'Police car (siren)': 317,
+                'Ambulance (siren)': 318,
+                'Fire engine, fire truck (siren)': 319
+            },
+            'medium': {  # Yellow alerts
+                'Doorbell': 349,
+                'Telephone bell ringing': 384,
+                'Vehicle horn, car horn, honking': 302,
+                'Baby cry, infant cry': 20
+            }
+        }
+        self.last_alert_time = 0
+        self.alert_cooldown = 5.0  # 5 seconds between alerts
+
+    def _check_for_alert(self, predicted_class, confidence):
+        """Check if current prediction should trigger an alert"""
+        current_time = time.time()
+        
+        # Check cooldown period
+        if current_time - self.last_alert_time < self.alert_cooldown:
+            return None
+            
+        # Check if this sound is in our alert list
+        for priority, sounds in self.alert_sounds.items():
+            for sound_name, sound_index in sounds.items():
+                if predicted_class == sound_name and confidence > 0.5:  # Simple confidence threshold
+                    self.last_alert_time = current_time
+                    return {
+                        'type': 'alert',
+                        'priority': priority,
+                        'sound': sound_name,
+                        'confidence': confidence,
+                        'timestamp': current_time
+                    }
+        return None
 
     def _class_names_from_csv(self):
         """Load class names from CSV (same as working classifier)"""
@@ -203,15 +248,25 @@ class FixedWebRealTimeAudioClassifier:
             # Get prediction history summary
             history_summary = self._get_prediction_summary()
             
+            # Check for alerts
+            alert = self._check_for_alert(predicted_class, confidence)
+            
             # Emit update to web interface
-            socketio.emit('classification_update', {
+            update_data = {
                 'class': predicted_class,
                 'confidence': confidence,
                 'scores': top_scores,
                 'history': history_summary,
                 'fps': fps,
                 'frame_count': self.frame_count
-            })
+            }
+            
+            # Add alert data if there's an alert
+            if alert:
+                update_data['alert'] = alert
+                logger.info(f"ALERT: {alert['priority'].upper()} - {alert['sound']} (confidence: {alert['confidence']:.3f})")
+            
+            socketio.emit('classification_update', update_data)
             
         except Exception as e:
             logger.error(f"Error in output processing: {e}")
