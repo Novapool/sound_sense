@@ -28,6 +28,9 @@ import pandas as pd
 # MemryX imports
 from memryx import AsyncAccl
 
+# Additional imports for mel spectrogram processing
+import scipy.signal
+
 # Import audio processing logic from our audio_processor
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 from audio_processor import AudioConfig
@@ -192,18 +195,117 @@ class YAMNetImprovedTester:
         
         return critical_sounds
     
+    def _convert_to_mel_spectrogram(self, waveform: np.ndarray) -> np.ndarray:
+        """
+        Convert raw audio waveform to mel spectrogram matching MemryX model expectations.
+        
+        The MemryX YAMNet model expects mel spectrograms with shape [1, 96, 64, 1]:
+        - 96 time frames
+        - 64 mel frequency bins  
+        - 1 channel
+        
+        Args:
+            waveform: Raw audio waveform (15360 samples for 0.96s at 16kHz)
+            
+        Returns:
+            Mel spectrogram with shape [1, 96, 64, 1]
+        """
+        try:
+            # YAMNet mel spectrogram parameters (matching TensorFlow YAMNet)
+            sample_rate = self.config.SAMPLE_RATE  # 16000 Hz
+            frame_length = int(0.025 * sample_rate)  # 25ms frames = 400 samples
+            frame_step = int(0.010 * sample_rate)    # 10ms hop = 160 samples  
+            num_mel_bins = 64
+            lower_edge_hertz = 125.0
+            upper_edge_hertz = 7500.0
+            
+            # Ensure waveform is 1D
+            if len(waveform.shape) > 1:
+                waveform = waveform.flatten()
+            
+            # Compute STFT
+            stft = librosa.stft(
+                waveform,
+                n_fft=512,  # FFT size
+                hop_length=frame_step,
+                win_length=frame_length,
+                window='hann',
+                center=True,
+                pad_mode='reflect'
+            )
+            
+            # Convert to magnitude spectrogram
+            magnitude_spectrogram = np.abs(stft)
+            
+            # Create mel filter bank
+            mel_filter_bank = librosa.filters.mel(
+                sr=sample_rate,
+                n_fft=512,
+                n_mels=num_mel_bins,
+                fmin=lower_edge_hertz,
+                fmax=upper_edge_hertz,
+                htk=False  # Use slaney-style mel scale
+            )
+            
+            # Apply mel filter bank
+            mel_spectrogram = np.dot(mel_filter_bank, magnitude_spectrogram)
+            
+            # Convert to log scale (add small epsilon to avoid log(0))
+            log_mel_spectrogram = np.log(mel_spectrogram + 1e-6)
+            
+            # Transpose to get (time, frequency) format
+            log_mel_spectrogram = log_mel_spectrogram.T
+            
+            # Ensure we have exactly 96 time frames
+            target_frames = 96
+            current_frames = log_mel_spectrogram.shape[0]
+            
+            if current_frames < target_frames:
+                # Pad with zeros if too short
+                padding = target_frames - current_frames
+                log_mel_spectrogram = np.pad(
+                    log_mel_spectrogram, 
+                    ((0, padding), (0, 0)), 
+                    mode='constant', 
+                    constant_values=np.min(log_mel_spectrogram)
+                )
+            elif current_frames > target_frames:
+                # Truncate if too long
+                log_mel_spectrogram = log_mel_spectrogram[:target_frames, :]
+            
+            # Ensure we have exactly 64 mel bins
+            if log_mel_spectrogram.shape[1] != num_mel_bins:
+                logger.warning(f"Mel spectrogram has {log_mel_spectrogram.shape[1]} bins, expected {num_mel_bins}")
+                # Resize if needed (this shouldn't happen with correct parameters)
+                from scipy.ndimage import zoom
+                zoom_factor = num_mel_bins / log_mel_spectrogram.shape[1]
+                log_mel_spectrogram = zoom(log_mel_spectrogram, (1, zoom_factor), order=1)
+            
+            # Reshape to model expected format: [1, 96, 64, 1]
+            mel_spectrogram_input = log_mel_spectrogram.reshape(1, target_frames, num_mel_bins, 1)
+            
+            logger.debug(f"Mel spectrogram conversion: "
+                        f"waveform {waveform.shape} -> mel {mel_spectrogram_input.shape}")
+            logger.debug(f"Mel spectrogram range: [{mel_spectrogram_input.min():.3f}, {mel_spectrogram_input.max():.3f}]")
+            
+            return mel_spectrogram_input.astype(np.float32)
+            
+        except Exception as e:
+            logger.error(f"Error converting to mel spectrogram: {e}")
+            raise
+    
     def preprocess_audio_file(self, audio_file_path: str) -> List[np.ndarray]:
         """
-        Preprocess audio file into raw audio waveforms for YAMNet.
+        Preprocess audio file into mel spectrograms for MemryX YAMNet model.
         
-        YAMNet expects raw audio waveforms, not mel spectrograms.
-        The model performs its own internal feature extraction.
+        The MemryX YAMNet model expects mel spectrograms with shape [1, 96, 64, 1],
+        not raw audio waveforms like the standard TensorFlow YAMNet.
         
         Args:
             audio_file_path: Path to the audio file
             
         Returns:
-            List of preprocessed audio windows, each shaped (1, window_length_samples)
+            List of preprocessed mel spectrograms, each shaped [1, 96, 64, 1]
         """
         logger.info(f"Preprocessing audio file: {audio_file_path}")
         
@@ -220,7 +322,7 @@ class YAMNetImprovedTester:
             waveform = np.clip(waveform, -1.0, 1.0)
             
             # Create sliding windows using YAMNet parameters
-            windows = []
+            raw_windows = []
             window_length = self.config.WINDOW_LENGTH_SAMPLES
             hop_length = self.config.HOP_LENGTH_SAMPLES
             
@@ -228,35 +330,45 @@ class YAMNetImprovedTester:
             if len(waveform) <= window_length:
                 # Short audio: pad and create single window
                 padded_waveform = np.pad(waveform, (0, window_length - len(waveform)), mode='constant')
-                window = padded_waveform.reshape(1, -1).astype(np.float32)
-                windows.append(window)
+                raw_windows.append(padded_waveform)
                 logger.info(f"Short audio: created 1 window with padding")
             else:
                 # Long audio: create sliding windows
                 start = 0
                 while start + window_length <= len(waveform):
                     window_data = waveform[start:start + window_length]
-                    window = window_data.reshape(1, -1).astype(np.float32)
-                    windows.append(window)
+                    raw_windows.append(window_data)
                     start += hop_length
                 
                 # Handle remaining audio if any
                 if start < len(waveform):
                     remaining = waveform[start:]
                     padded_remaining = np.pad(remaining, (0, window_length - len(remaining)), mode='constant')
-                    window = padded_remaining.reshape(1, -1).astype(np.float32)
-                    windows.append(window)
+                    raw_windows.append(padded_remaining)
                 
-                logger.info(f"Long audio: created {len(windows)} sliding windows")
+                logger.info(f"Long audio: created {len(raw_windows)} sliding windows")
             
-            # Log window details
-            for i, window in enumerate(windows[:3]):  # Log first 3 windows
-                logger.info(f"Window {i}: shape={window.shape}, range=[{window.min():.3f}, {window.max():.3f}]")
+            # Convert each raw audio window to mel spectrogram
+            logger.info("Converting raw audio windows to mel spectrograms...")
+            mel_windows = []
             
-            if len(windows) > 3:
-                logger.info(f"... and {len(windows) - 3} more windows")
+            for i, raw_window in enumerate(raw_windows):
+                try:
+                    mel_spectrogram = self._convert_to_mel_spectrogram(raw_window)
+                    mel_windows.append(mel_spectrogram)
+                    
+                    if i < 3:  # Log first 3 windows
+                        logger.info(f"Window {i}: raw {raw_window.shape} -> mel {mel_spectrogram.shape}, "
+                                  f"range=[{mel_spectrogram.min():.3f}, {mel_spectrogram.max():.3f}]")
+                except Exception as e:
+                    logger.error(f"Error converting window {i} to mel spectrogram: {e}")
+                    continue
             
-            return windows
+            if len(raw_windows) > 3:
+                logger.info(f"... and {len(raw_windows) - 3} more windows converted")
+            
+            logger.info(f"Successfully converted {len(mel_windows)} windows to mel spectrograms")
+            return mel_windows
             
         except Exception as e:
             logger.error(f"Error preprocessing audio file {audio_file_path}: {e}")
@@ -264,15 +376,15 @@ class YAMNetImprovedTester:
     
     def audio_generator(self):
         """
-        Generator function that yields preprocessed raw audio windows.
+        Generator function that yields preprocessed mel spectrograms.
         This follows the MemryX AsyncAccl pattern.
         """
         try:
             if not self.current_windows:
-                logger.error("No audio windows available for processing")
+                logger.error("No mel spectrogram windows available for processing")
                 return
             
-            logger.info(f"Yielding {len(self.current_windows)} raw audio windows")
+            logger.info(f"Yielding {len(self.current_windows)} mel spectrogram windows")
             
             for i, window in enumerate(self.current_windows):
                 logger.debug(f"Yielding window {i+1}/{len(self.current_windows)}: shape={window.shape}")
@@ -564,12 +676,12 @@ class YAMNetImprovedTester:
         self.window_results = []  # Reset for new file
         
         try:
-            # Preprocess audio file into raw audio windows
-            logger.info("Preprocessing audio file into raw audio windows...")
+            # Preprocess audio file into mel spectrograms
+            logger.info("Preprocessing audio file into mel spectrograms...")
             self.current_windows = self.preprocess_audio_file(audio_file_path)
             
             if not self.current_windows:
-                logger.error("No audio windows generated")
+                logger.error("No mel spectrogram windows generated")
                 return False
             
             # Initialize the MemryX accelerator
@@ -593,8 +705,8 @@ class YAMNetImprovedTester:
             final_result = {
                 'audio_file': str(self.current_audio_file),
                 'timestamp': datetime.now().isoformat(),
-                'model_info': 'YAMNet with proper AudioSet class mapping and raw audio processing',
-                'processing_info': 'Raw audio waveforms processed with sliding windows, scores aggregated across frames',
+                'model_info': 'MemryX YAMNet with proper AudioSet class mapping and mel spectrogram processing',
+                'processing_info': 'Raw audio converted to mel spectrograms with sliding windows, scores aggregated across frames',
                 'audio_duration_seconds': len(self.current_windows) * self.config.HOP_LENGTH_SECONDS,
                 'total_windows_processed': len(self.window_results),
                 'aggregated_results': aggregated_result
