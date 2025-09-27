@@ -1,0 +1,74 @@
+{
+  "model_config": {
+    "sample_rate": 16000,
+    "window_length_seconds": 0.96,
+    "hop_length_seconds": 0.48,
+    "num_classes": 521
+  },
+  "critical_sounds": {
+    "fire_alarm": {
+      "indices": [394],
+      "keywords": ["fire alarm"],
+      "threshold": 0.1,
+      "aggregated_threshold_multiplier": 0.7,
+      "min_detection_rate": 0.1,
+      "urgency": "CRITICAL",
+      "description": "Fire alarm detection"
+    },
+    "smoke_detector": {
+      "indices": [393],
+      "keywords": ["smoke detector", "smoke alarm"],
+      "threshold": 0.1,
+      "aggregated_threshold_multiplier": 0.7,
+      "min_detection_rate": 0.1,
+      "urgency": "CRITICAL",
+      "description": "Smoke detector alarm"
+    },
+    "general_alarm": {
+      "indices": [382, 389],
+      "keywords": ["alarm"],
+      "threshold": 0.15,
+      "aggregated_threshold_multiplier": 0.7,
+      "min_detection_rate": 0.1,
+      "urgency": "HIGH",
+      "description": "General alarm sounds"
+    },
+    "emergency_siren": {
+      "indices": [390, 391, 317, 318, 319],
+      "keywords": ["siren", "emergency vehicle", "police car", "ambulance", "fire engine"],
+      "threshold": 0.12,
+      "aggregated_threshold_multiplier": 0.7,
+      "min_detection_rate": 0.1,
+      "urgency": "HIGH",
+      "description": "Emergency vehicle sirens"
+    },
+    "buzzer": {
+      "indices": [392],
+      "keywords": ["buzzer"],
+      "threshold": 0.15,
+      "aggregated_threshold_multiplier": 0.7,
+      "min_detection_rate": 0.1,
+      "urgency": "MEDIUM",
+      "description": "Buzzer sounds"
+    },
+    "security_alarm": {
+      "indices": [304],
+      "keywords": ["car alarm"],
+      "threshold": 0.12,
+      "aggregated_threshold_multiplier": 0.7,
+      "min_detection_rate": 0.1,
+      "urgency": "MEDIUM",
+      "description": "Security alarms"
+    }
+  },
+  "confidence_levels": {
+    "high_detection_rate": 0.5,
+    "medium_detection_rate": 0.3,
+    "low_detection_rate": 0.1
+  },
+  "logging": {
+    "log_top_predictions": 10,
+    "log_aggregated_predictions": 12,
+    "log_window_details": 3
+  }
+}
