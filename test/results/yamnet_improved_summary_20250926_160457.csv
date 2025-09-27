@@ -1,3 +1,0 @@
-Audio File,Duration (s),Windows Processed,Top Prediction,Mean Score,Detection Rate %,Second Prediction,Mean Score,Detection Rate %,Critical Alerts,Alert Details
-school-fire-alarm-loud-beepflac-14807.mp3,63.4,132,Silence,0.157,100.0,Boing,-3.875,1.5,None,None
-fire-alarm-33770.mp3,14.9,31,Silence,-1.240,100.0,Sound effect,-2.808,100.0,None,None
